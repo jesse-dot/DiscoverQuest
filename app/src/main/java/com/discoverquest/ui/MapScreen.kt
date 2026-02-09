@@ -25,10 +25,13 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.material3.rememberStandardBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -94,39 +97,62 @@ fun OsmMapView(
     longitude: Double,
     nearbyCities: List<Triple<Double, Double, String>>
 ) {
+    val context = LocalContext.current
+    
+    // Remember the MapView instance to prevent recreation on recomposition
+    val mapView = remember {
+        MapView(context).apply {
+            setTileSource(TileSourceFactory.MAPNIK)
+            setMultiTouchControls(true)
+            controller.setZoom(13.0)
+        }
+    }
+    
+    // Handle lifecycle events
+    DisposableEffect(Unit) {
+        mapView.onResume()
+        onDispose {
+            mapView.onPause()
+        }
+    }
+    
+    // Update map when location or cities change
+    DisposableEffect(latitude, longitude, nearbyCities) {
+        if (latitude != 0.0 || longitude != 0.0) {
+            val point = GeoPoint(latitude, longitude)
+            mapView.controller.setCenter(point)
+
+            // Clear existing overlays before adding new ones
+            mapView.overlays.clear()
+
+            // Add user location marker
+            val userMarker = Marker(mapView).apply {
+                position = point
+                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                title = "You are here"
+            }
+            mapView.overlays.add(userMarker)
+
+            // Add nearby city markers
+            for ((lat, lon, name) in nearbyCities) {
+                val marker = Marker(mapView).apply {
+                    position = GeoPoint(lat, lon)
+                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                    title = name
+                }
+                mapView.overlays.add(marker)
+            }
+            
+            // Refresh the map to show the new overlays
+            mapView.invalidate()
+        }
+        
+        onDispose { }
+    }
+
     AndroidView(
         modifier = Modifier.fillMaxSize(),
-        factory = { context ->
-            MapView(context).apply {
-                setTileSource(TileSourceFactory.MAPNIK)
-                setMultiTouchControls(true)
-                controller.setZoom(13.0)
-            }
-        },
-        update = { mapView ->
-            if (latitude != 0.0 || longitude != 0.0) {
-                val point = GeoPoint(latitude, longitude)
-                mapView.controller.setCenter(point)
-
-                mapView.overlays.clear()
-
-                val userMarker = Marker(mapView).apply {
-                    position = point
-                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-                    title = "You are here"
-                }
-                mapView.overlays.add(userMarker)
-
-                for ((lat, lon, name) in nearbyCities) {
-                    val marker = Marker(mapView).apply {
-                        position = GeoPoint(lat, lon)
-                        setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-                        title = name
-                    }
-                    mapView.overlays.add(marker)
-                }
-            }
-        }
+        factory = { mapView }
     )
 }
 
