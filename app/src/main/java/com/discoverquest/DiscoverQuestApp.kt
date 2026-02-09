@@ -5,6 +5,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.os.Build
 import com.discoverquest.data.local.AppDatabase
+import org.osmdroid.config.Configuration
 
 class DiscoverQuestApp : Application() {
 
@@ -12,7 +13,17 @@ class DiscoverQuestApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        initializeOsmdroid()
         createNotificationChannel()
+    }
+
+    private fun initializeOsmdroid() {
+        Configuration.getInstance().apply {
+            userAgentValue = packageName
+            // Set cache path for tile storage
+            osmdroidBasePath = filesDir
+            osmdroidTileCache = cacheDir
+        }
     }
 
     private fun createNotificationChannel() {
