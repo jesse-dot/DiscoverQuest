@@ -13,10 +13,8 @@ import com.discoverquest.data.local.AppDatabase
 import com.discoverquest.data.local.DiscoveredCity
 import com.google.android.gms.location.Geofence
 import com.google.android.gms.location.GeofenceStatusCodes
-import com.google.android.gms.location.GeofencingClient
 import com.google.android.gms.location.GeofencingEvent
 import com.google.android.gms.location.GeofencingRequest
-import com.google.android.gms.location.LocationServices
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -26,6 +24,7 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
     companion object {
         private const val TAG = "GeofenceReceiver"
         private const val GEOFENCE_RADIUS_METERS = 500f
+        private const val PREFS_NAME = "geofence_city_data"
 
         fun createGeofence(id: String, lat: Double, lon: Double): Geofence {
             return Geofence.Builder()
@@ -54,6 +53,23 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
                 intent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
             )
+        }
+
+        fun storeCityData(
+            context: Context,
+            cityId: Long,
+            name: String,
+            lat: Double,
+            lon: Double,
+            placeType: String
+        ) {
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            prefs.edit()
+                .putString("${cityId}_name", name)
+                .putFloat("${cityId}_lat", lat.toFloat())
+                .putFloat("${cityId}_lon", lon.toFloat())
+                .putString("${cityId}_type", placeType)
+                .apply()
         }
     }
 
@@ -84,12 +100,18 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
             val alreadyDiscovered = db.discoveredCityDao().isDiscovered(cityId)
 
             if (!alreadyDiscovered) {
+                val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                val name = prefs.getString("${cityId}_name", null) ?: "City $cityId"
+                val lat = prefs.getFloat("${cityId}_lat", 0f).toDouble()
+                val lon = prefs.getFloat("${cityId}_lon", 0f).toDouble()
+                val placeType = prefs.getString("${cityId}_type", null) ?: "unknown"
+
                 val city = DiscoveredCity(
                     id = cityId,
-                    name = "City $cityId",
-                    latitude = 0.0,
-                    longitude = 0.0,
-                    placeType = "unknown"
+                    name = name,
+                    latitude = lat,
+                    longitude = lon,
+                    placeType = placeType
                 )
                 db.discoveredCityDao().insert(city)
 

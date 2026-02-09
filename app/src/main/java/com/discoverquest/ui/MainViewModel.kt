@@ -106,6 +106,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         ) return
 
         val geofences = elements.map { element ->
+            GeofenceBroadcastReceiver.storeCityData(
+                context,
+                element.id,
+                element.name,
+                element.effectiveLat,
+                element.effectiveLon,
+                element.placeType
+            )
             GeofenceBroadcastReceiver.createGeofence(
                 element.id.toString(),
                 element.effectiveLat,

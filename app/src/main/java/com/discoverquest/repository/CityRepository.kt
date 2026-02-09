@@ -45,7 +45,7 @@ class CityRepository(private val database: AppDatabase) {
         lastFetchLat = lat
         lastFetchLon = lon
 
-        return response.elements.filter { it.name != "Unknown" }
+        return response.elements.filter { it.tags?.get("name") != null }
     }
 
     suspend fun markDiscovered(element: OverpassElement) {
